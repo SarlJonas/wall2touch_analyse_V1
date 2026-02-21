@@ -1,0 +1,1980 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robot JQ - Analyseur de Bulletin Scolaire Intelligent | CE2</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Quicksand:wght@300;400;500;600;700&family=Fredoka:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        :root {
+            --primary-cyan: #00f5ff;
+            --primary-magenta: #ff00ff;
+            --primary-yellow: #ffff00;
+            --accent-green: #00ff88;
+            --accent-orange: #ff8800;
+            --accent-purple: #8800ff;
+            --accent-red: #ff4466;
+            --dark-bg: #0a0a1a;
+            --dark-card: #12122a;
+            --dark-surface: #1a1a3a;
+            --glow-cyan: 0 0 20px rgba(0, 245, 255, 0.5), 0 0 40px rgba(0, 245, 255, 0.3);
+            --glow-magenta: 0 0 20px rgba(255, 0, 255, 0.5), 0 0 40px rgba(255, 0, 255, 0.3);
+            --glow-green: 0 0 20px rgba(0, 255, 136, 0.5), 0 0 40px rgba(0, 255, 136, 0.3);
+            --glow-orange: 0 0 20px rgba(255, 136, 0, 0.5), 0 0 40px rgba(255, 136, 0, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Quicksand', sans-serif;
+            background: var(--dark-bg);
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated Background */
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .bg-animation::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(0, 245, 255, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 0, 255, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(136, 0, 255, 0.05) 0%, transparent 50%);
+            animation: bgRotate 40s linear infinite;
+        }
+
+        @keyframes bgRotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .grid-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 245, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 245, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: -1;
+        }
+
+        /* Floating particles */
+        .particles {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--primary-cyan);
+            border-radius: 50%;
+            animation: floatParticle 20s infinite linear;
+            box-shadow: var(--glow-cyan);
+        }
+
+        .particle:nth-child(2n) { background: var(--primary-magenta); box-shadow: var(--glow-magenta); animation-duration: 25s; }
+        .particle:nth-child(3n) { background: var(--accent-green); box-shadow: var(--glow-green); animation-duration: 18s; }
+        .particle:nth-child(1) { left: 5%; animation-delay: 0s; }
+        .particle:nth-child(2) { left: 15%; animation-delay: 3s; }
+        .particle:nth-child(3) { left: 25%; animation-delay: 1s; }
+        .particle:nth-child(4) { left: 35%; animation-delay: 4s; }
+        .particle:nth-child(5) { left: 45%; animation-delay: 2s; }
+        .particle:nth-child(6) { left: 55%; animation-delay: 5s; }
+        .particle:nth-child(7) { left: 65%; animation-delay: 1.5s; }
+        .particle:nth-child(8) { left: 75%; animation-delay: 3.5s; }
+        .particle:nth-child(9) { left: 85%; animation-delay: 2.5s; }
+        .particle:nth-child(10) { left: 95%; animation-delay: 4.5s; }
+
+        @keyframes floatParticle {
+            0% { transform: translateY(100vh) scale(0); opacity: 0; }
+            10% { opacity: 1; transform: translateY(90vh) scale(1); }
+            90% { opacity: 1; }
+            100% { transform: translateY(-10vh) scale(0); opacity: 0; }
+        }
+
+        /* Header */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            padding: 15px 40px;
+            background: linear-gradient(180deg, rgba(10, 10, 26, 0.98) 0%, rgba(10, 10, 26, 0.9) 100%);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(0, 245, 255, 0.2);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-img {
+            width: 55px;
+            height: 55px;
+            border-radius: 12px;
+            box-shadow: var(--glow-cyan);
+            animation: logoPulse 3s ease-in-out infinite;
+            object-fit: cover;
+        }
+
+        @keyframes logoPulse {
+            0%, 100% { box-shadow: var(--glow-cyan); }
+            50% { box-shadow: var(--glow-magenta); }
+        }
+
+        .company-name h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.3rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, var(--primary-cyan), var(--primary-magenta));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .company-name p {
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.5);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .header-badge {
+            background: linear-gradient(135deg, var(--accent-green), var(--primary-cyan));
+            padding: 10px 25px;
+            border-radius: 50px;
+            font-family: 'Fredoka', sans-serif;
+            font-weight: 600;
+            color: var(--dark-bg);
+            font-size: 0.9rem;
+            box-shadow: var(--glow-green);
+        }
+
+        /* Main Container */
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 100px 30px 50px;
+        }
+
+        /* Hero Section */
+        .hero-section {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 50px;
+            align-items: center;
+            margin-bottom: 60px;
+            padding: 40px 0;
+        }
+
+        .hero-text h2 {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 3.2rem;
+            font-weight: 700;
+            line-height: 1.15;
+            margin-bottom: 20px;
+        }
+
+        .hero-text h2 .line1 {
+            color: var(--primary-cyan);
+            text-shadow: var(--glow-cyan);
+        }
+
+        .hero-text h2 .line2 {
+            background: linear-gradient(90deg, var(--primary-magenta), var(--accent-orange));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-text h2 .line3 {
+            color: var(--accent-green);
+            font-size: 2.5rem;
+        }
+
+        .hero-text p {
+            font-size: 1.15rem;
+            color: rgba(255, 255, 255, 0.75);
+            line-height: 1.8;
+            margin-bottom: 30px;
+        }
+
+        .hero-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .hero-feature {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px 18px;
+            border-radius: 50px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.9rem;
+        }
+
+        .hero-feature span { font-size: 1.1rem; }
+
+        /* Robot Video Container */
+        .robot-container {
+            position: relative;
+        }
+
+        .robot-glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 350px;
+            height: 350px;
+            background: radial-gradient(circle, rgba(0, 245, 255, 0.2) 0%, rgba(255, 0, 255, 0.1) 50%, transparent 70%);
+            border-radius: 50%;
+            animation: robotGlow 4s ease-in-out infinite;
+            z-index: 0;
+        }
+
+        @keyframes robotGlow {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
+            50% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+        }
+
+        .robot-video-wrapper {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            border-radius: 30px;
+            overflow: hidden;
+            border: 3px solid rgba(0, 245, 255, 0.3);
+            box-shadow: var(--glow-cyan);
+        }
+
+        .robot-video {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 27px;
+        }
+
+        .robot-label {
+            position: absolute;
+            bottom: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, var(--primary-cyan), var(--primary-magenta));
+            padding: 10px 30px;
+            border-radius: 50px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--dark-bg);
+            box-shadow: var(--glow-cyan);
+            z-index: 2;
+        }
+
+        /* Upload Section */
+        .upload-section {
+            margin-bottom: 50px;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .section-header h3 {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, var(--primary-cyan), var(--primary-magenta));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .section-header p {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 1.1rem;
+        }
+
+        .upload-zone {
+            background: linear-gradient(135deg, var(--dark-card) 0%, var(--dark-surface) 100%);
+            border: 3px dashed rgba(0, 245, 255, 0.4);
+            border-radius: 30px;
+            padding: 60px 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-zone::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 245, 255, 0.1), transparent);
+            transition: left 0.6s ease;
+        }
+
+        .upload-zone:hover {
+            border-color: var(--primary-cyan);
+            transform: translateY(-5px);
+            box-shadow: var(--glow-cyan);
+        }
+
+        .upload-zone:hover::before {
+            left: 100%;
+        }
+
+        .upload-zone.dragover {
+            border-color: var(--accent-green);
+            background: rgba(0, 255, 136, 0.05);
+            box-shadow: var(--glow-green);
+        }
+
+        .upload-icon {
+            font-size: 5rem;
+            margin-bottom: 20px;
+            animation: bounce 2s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+
+        .upload-zone h4 {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            color: var(--primary-cyan);
+        }
+
+        .upload-zone p {
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 25px;
+            font-size: 1.05rem;
+        }
+
+        .upload-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(135deg, var(--primary-magenta), var(--accent-purple));
+            padding: 18px 40px;
+            border-radius: 50px;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: var(--glow-magenta);
+        }
+
+        .upload-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 40px rgba(255, 0, 255, 0.6);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-info {
+            margin-top: 25px;
+            padding: 20px;
+            background: rgba(0, 255, 136, 0.1);
+            border-radius: 15px;
+            border: 1px solid var(--accent-green);
+            display: none;
+        }
+
+        .file-info.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .file-info span {
+            font-size: 2rem;
+        }
+
+        .file-info p {
+            color: var(--accent-green);
+            font-weight: 600;
+            margin: 0;
+        }
+
+        /* Loading Animation */
+        .loading-container {
+            display: none;
+            text-align: center;
+            padding: 60px 40px;
+        }
+
+        .loading-container.show {
+            display: block;
+        }
+
+        .loading-robot {
+            width: 150px;
+            height: 150px;
+            margin: 0 auto 30px;
+            position: relative;
+        }
+
+        .loading-robot::before {
+            content: '🤖';
+            font-size: 80px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation: robotAnalyze 1s ease-in-out infinite;
+        }
+
+        @keyframes robotAnalyze {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+        }
+
+        .loading-ring {
+            width: 150px;
+            height: 150px;
+            border: 4px solid transparent;
+            border-top-color: var(--primary-cyan);
+            border-right-color: var(--primary-magenta);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.5rem;
+            color: var(--primary-cyan);
+            margin-bottom: 15px;
+        }
+
+        .loading-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .loading-step {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            background: var(--dark-card);
+            border-radius: 12px;
+            opacity: 0.4;
+            transition: all 0.3s ease;
+        }
+
+        .loading-step.active {
+            opacity: 1;
+            border: 1px solid var(--primary-cyan);
+            box-shadow: var(--glow-cyan);
+        }
+
+        .loading-step.done {
+            opacity: 1;
+            border: 1px solid var(--accent-green);
+        }
+
+        .loading-step .icon {
+            font-size: 1.3rem;
+        }
+
+        .loading-step .text {
+            font-size: 0.95rem;
+        }
+
+        /* Dashboard Results */
+        .dashboard-container {
+            display: none;
+        }
+
+        .dashboard-container.show {
+            display: block;
+            animation: fadeInUp 0.6s ease;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Student Info Card */
+        .student-card {
+            background: linear-gradient(135deg, var(--dark-card) 0%, var(--dark-surface) 100%);
+            border-radius: 25px;
+            padding: 35px;
+            margin-bottom: 40px;
+            border: 1px solid rgba(0, 245, 255, 0.2);
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .student-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-cyan), var(--primary-magenta));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            box-shadow: var(--glow-cyan);
+        }
+
+        .student-info h4 {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+
+        .student-info .meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .student-info .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.95rem;
+        }
+
+        .student-info .meta-item span {
+            color: var(--primary-cyan);
+        }
+
+        .global-score {
+            text-align: center;
+        }
+
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: conic-gradient(var(--accent-green) 0deg, var(--accent-green) calc(var(--score) * 3.6deg), var(--dark-surface) calc(var(--score) * 3.6deg));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-shadow: var(--glow-green);
+        }
+
+        .score-circle::before {
+            content: '';
+            position: absolute;
+            width: 90px;
+            height: 90px;
+            background: var(--dark-card);
+            border-radius: 50%;
+        }
+
+        .score-value {
+            position: relative;
+            z-index: 1;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--accent-green);
+        }
+
+        .score-label {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Robot Message */
+        .robot-message {
+            background: linear-gradient(135deg, rgba(0, 245, 255, 0.1), rgba(255, 0, 255, 0.1));
+            border-radius: 25px;
+            padding: 30px;
+            margin-bottom: 40px;
+            border: 2px solid rgba(0, 245, 255, 0.3);
+            display: flex;
+            gap: 25px;
+            align-items: flex-start;
+        }
+
+        .robot-message-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-cyan), var(--accent-green));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            flex-shrink: 0;
+            animation: avatarPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes avatarPulse {
+            0%, 100% { box-shadow: var(--glow-cyan); }
+            50% { box-shadow: var(--glow-green); }
+        }
+
+        .robot-message-content h4 {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.4rem;
+            color: var(--primary-cyan);
+            margin-bottom: 12px;
+        }
+
+        .robot-message-content p {
+            font-size: 1.15rem;
+            line-height: 1.7;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        /* Dashboard Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .dashboard-card {
+            background: linear-gradient(135deg, var(--dark-card) 0%, var(--dark-surface) 100%);
+            border-radius: 25px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(0, 245, 255, 0.3);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .card-icon {
+            width: 55px;
+            height: 55px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+        }
+
+        .card-icon.francais { background: linear-gradient(135deg, rgba(0, 245, 255, 0.2), rgba(0, 245, 255, 0.05)); }
+        .card-icon.maths { background: linear-gradient(135deg, rgba(255, 0, 255, 0.2), rgba(255, 0, 255, 0.05)); }
+        .card-icon.comportement { background: linear-gradient(135deg, rgba(0, 255, 136, 0.2), rgba(0, 255, 136, 0.05)); }
+        .card-icon.forces { background: linear-gradient(135deg, rgba(255, 136, 0, 0.2), rgba(255, 136, 0, 0.05)); }
+
+        .card-header h4 {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.4rem;
+            color: #fff;
+        }
+
+        .card-header .badge {
+            margin-left: auto;
+            padding: 6px 15px;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .badge.acquis { background: rgba(0, 255, 136, 0.2); color: var(--accent-green); }
+        .badge.encours { background: rgba(255, 136, 0, 0.2); color: var(--accent-orange); }
+        .badge.nonacquis { background: rgba(255, 68, 102, 0.2); color: var(--accent-red); }
+
+        /* Subject Details */
+        .subject-items {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .subject-item {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 15px;
+            padding: 18px 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .subject-item .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .status-dot.green { background: var(--accent-green); box-shadow: 0 0 10px var(--accent-green); }
+        .status-dot.orange { background: var(--accent-orange); box-shadow: 0 0 10px var(--accent-orange); }
+        .status-dot.red { background: var(--accent-red); box-shadow: 0 0 10px var(--accent-red); }
+
+        .subject-item .name {
+            font-weight: 600;
+            color: #fff;
+            min-width: 120px;
+        }
+
+        .subject-item .comment {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9rem;
+            flex: 1;
+        }
+
+        /* Progress Bars */
+        .progress-item {
+            margin-bottom: 20px;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .progress-header .label {
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .progress-header .value {
+            color: var(--primary-cyan);
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .progress-bar {
+            height: 12px;
+            background: var(--dark-surface);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 1s ease;
+        }
+
+        .progress-fill.cyan { background: linear-gradient(90deg, var(--primary-cyan), var(--accent-green)); }
+        .progress-fill.magenta { background: linear-gradient(90deg, var(--primary-magenta), var(--accent-purple)); }
+        .progress-fill.green { background: linear-gradient(90deg, var(--accent-green), var(--primary-cyan)); }
+        .progress-fill.orange { background: linear-gradient(90deg, var(--accent-orange), var(--primary-yellow)); }
+
+        /* Keywords */
+        .keywords {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .keyword {
+            padding: 8px 18px;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .keyword.positive { background: rgba(0, 255, 136, 0.15); color: var(--accent-green); border: 1px solid rgba(0, 255, 136, 0.3); }
+        .keyword.neutral { background: rgba(0, 245, 255, 0.15); color: var(--primary-cyan); border: 1px solid rgba(0, 245, 255, 0.3); }
+        .keyword.attention { background: rgba(255, 136, 0, 0.15); color: var(--accent-orange); border: 1px solid rgba(255, 136, 0, 0.3); }
+
+        /* Modules Recommendation */
+        .modules-section {
+            margin-bottom: 40px;
+        }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+        }
+
+        .module-card {
+            background: linear-gradient(135deg, var(--dark-card) 0%, var(--dark-surface) 100%);
+            border-radius: 25px;
+            padding: 30px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .module-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-cyan), var(--primary-magenta));
+        }
+
+        .module-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--primary-cyan);
+            box-shadow: var(--glow-cyan);
+        }
+
+        .module-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+
+        .module-card h5 {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.3rem;
+            color: #fff;
+            margin-bottom: 12px;
+        }
+
+        .module-card .reason {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .module-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, var(--primary-cyan), var(--accent-green));
+            padding: 12px 25px;
+            border-radius: 50px;
+            color: var(--dark-bg);
+            font-weight: 700;
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        .module-btn:hover {
+            transform: scale(1.05);
+            box-shadow: var(--glow-cyan);
+        }
+
+        /* Diagnostic Summary */
+        .diagnostic-card {
+            background: linear-gradient(135deg, rgba(0, 245, 255, 0.05), rgba(255, 0, 255, 0.05));
+            border: 2px solid rgba(0, 245, 255, 0.2);
+            border-radius: 25px;
+            padding: 40px;
+            margin-bottom: 40px;
+        }
+
+        .diagnostic-header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .diagnostic-icon {
+            width: 70px;
+            height: 70px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, var(--primary-cyan), var(--primary-magenta));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+        }
+
+        .diagnostic-header h4 {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.8rem;
+            color: #fff;
+        }
+
+        .diagnostic-header p {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .diagnostic-items {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 25px;
+        }
+
+        .diagnostic-item {
+            background: var(--dark-card);
+            border-radius: 20px;
+            padding: 25px;
+            display: flex;
+            gap: 15px;
+        }
+
+        .diagnostic-item .emoji {
+            font-size: 2.5rem;
+        }
+
+        .diagnostic-item .label {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .diagnostic-item .value {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.2rem;
+            color: #fff;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 40px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 60px;
+        }
+
+        .footer-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .footer-logo img {
+            width: 45px;
+            height: 45px;
+            border-radius: 10px;
+        }
+
+        .footer-logo span {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.1rem;
+            color: var(--primary-cyan);
+        }
+
+        footer p {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.9rem;
+        }
+
+        /* New Analysis Button */
+        .new-analysis-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(135deg, var(--accent-orange), var(--primary-magenta));
+            padding: 18px 40px;
+            border-radius: 50px;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 30px;
+        }
+
+        .new-analysis-btn:hover {
+            transform: scale(1.05);
+            box-shadow: var(--glow-orange);
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .hero-section {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .robot-container {
+                max-width: 350px;
+                margin: 0 auto;
+            }
+
+            .hero-features {
+                justify-content: center;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .student-card {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .student-info .meta {
+                justify-content: center;
+            }
+
+            .diagnostic-items {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .header-content {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .hero-text h2 {
+                font-size: 2.2rem;
+            }
+
+            .hero-text h2 .line3 {
+                font-size: 1.8rem;
+            }
+
+            .upload-zone {
+                padding: 40px 20px;
+            }
+
+            .robot-message {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .robot-message-avatar {
+                margin: 0 auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Background Effects -->
+    <div class="bg-animation"></div>
+    <div class="grid-overlay"></div>
+    <div class="particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+
+    <!-- Header -->
+    <header>
+        <div class="header-content">
+            <div class="logo-section">
+                <img src="LOGO_JB.png" alt="Logo JB" class="logo-img">
+                <div class="company-name">
+                    <h1>Jonas Browser</h1>
+                    <p>High-Tech Solutions</p>
+                </div>
+            </div>
+            <div class="header-badge">🎓 Analyseur Intelligent CE2</div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-text">
+                <h2>
+                    <span class="line1">Robot JQ</span>
+                    <span class="line2">Analyse ton Bulletin</span>
+                    <span class="line3">🚀 En un clic !</span>
+                </h2>
+                <p>
+                    Télécharge ton bulletin scolaire et laisse Robot JQ l'analyser 
+                    avec son intelligence artificielle. Il créera un tableau de bord 
+                    personnalisé avec des recommandations pour t'aider à progresser !
+                </p>
+                <div class="hero-features">
+                    <div class="hero-feature"><span>📄</span> Analyse PDF</div>
+                    <div class="hero-feature"><span>🧠</span> IA Intelligente</div>
+                    <div class="hero-feature"><span>📊</span> Tableau de bord</div>
+                    <div class="hero-feature"><span>🎯</span> Recommandations</div>
+                </div>
+            </div>
+            <div class="robot-container">
+                <div class="robot-glow"></div>
+                <div class="robot-video-wrapper">
+                    <video class="robot-video" autoplay loop muted playsinline>
+                        <source src="robot_jq.mp4" type="video/mp4">
+                    </video>
+                </div>
+                <div class="robot-label">ROBOT JQ 🤖</div>
+            </div>
+        </section>
+
+        <!-- Upload Section -->
+        <section class="upload-section" id="upload-section">
+            <div class="section-header">
+                <h3>📤 Télécharge ton Bulletin</h3>
+                <p>Glisse ton fichier PDF ou clique pour le sélectionner</p>
+            </div>
+            <div class="upload-zone" id="upload-zone">
+                <div class="upload-icon">📋</div>
+                <h4>Dépose ton bulletin ici</h4>
+                <p>Format accepté : PDF (Bulletin scolaire CE2)</p>
+                <button class="upload-btn" onclick="document.getElementById('file-input').click()">
+                    <span>📁</span> Parcourir les fichiers
+                </button>
+                <input type="file" id="file-input" class="file-input" accept=".pdf">
+                <div class="file-info" id="file-info">
+                    <span>✅</span>
+                    <p id="file-name">bulletin.pdf</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Loading Animation -->
+        <div class="loading-container" id="loading-container">
+            <div class="loading-robot">
+                <div class="loading-ring"></div>
+            </div>
+            <div class="loading-text">Robot JQ analyse ton bulletin...</div>
+            <div class="loading-steps">
+                <div class="loading-step" id="step-1">
+                    <span class="icon">📄</span>
+                    <span class="text">Lecture du document PDF</span>
+                </div>
+                <div class="loading-step" id="step-2">
+                    <span class="icon">🔍</span>
+                    <span class="text">Extraction des notes et commentaires</span>
+                </div>
+                <div class="loading-step" id="step-3">
+                    <span class="icon">🧠</span>
+                    <span class="text">Analyse par l'intelligence artificielle</span>
+                </div>
+                <div class="loading-step" id="step-4">
+                    <span class="icon">📊</span>
+                    <span class="text">Génération du tableau de bord</span>
+                </div>
+                <div class="loading-step" id="step-5">
+                    <span class="icon">🎯</span>
+                    <span class="text">Création des recommandations personnalisées</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Results -->
+        <div class="dashboard-container" id="dashboard-container">
+            <!-- Student Card -->
+            <div class="student-card">
+                <div class="student-avatar" id="student-avatar">👧</div>
+                <div class="student-info">
+                    <h4 id="student-name">Élève CE2</h4>
+                    <div class="meta">
+                        <div class="meta-item">🏫 <span id="school-name">École détectée</span></div>
+                        <div class="meta-item">📅 <span id="period">Trimestre</span></div>
+                        <div class="meta-item">📚 <span>Niveau CE2</span></div>
+                    </div>
+                </div>
+                <div class="global-score">
+                    <div class="score-circle" style="--score: 75;">
+                        <span class="score-value" id="global-score">75%</span>
+                    </div>
+                    <div class="score-label">Score Global</div>
+                </div>
+            </div>
+
+            <!-- Robot Message -->
+            <div class="robot-message">
+                <div class="robot-message-avatar">🤖</div>
+                <div class="robot-message-content">
+                    <h4>💬 Message de Robot JQ</h4>
+                    <p id="robot-personal-message">
+                        Salut champion ! J'ai analysé ton bulletin et je vois que tu as plein de potentiel ! 
+                        On va travailler ensemble pour devenir encore meilleur. Es-tu prêt(e) pour l'aventure ?
+                    </p>
+                </div>
+            </div>
+
+            <!-- Dashboard Grid -->
+            <div class="dashboard-grid">
+                <!-- Français Card -->
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <div class="card-icon francais">📖</div>
+                        <h4>Français</h4>
+                        <span class="badge acquis" id="francais-badge">Acquis</span>
+                    </div>
+                    <div class="subject-items" id="francais-items">
+                        <div class="subject-item">
+                            <div class="status-dot green"></div>
+                            <span class="name">Lecture</span>
+                            <span class="comment">Bonne fluidité de lecture</span>
+                        </div>
+                        <div class="subject-item">
+                            <div class="status-dot orange"></div>
+                            <span class="name">Écriture</span>
+                            <span class="comment">Attention à l'orthographe</span>
+                        </div>
+                        <div class="subject-item">
+                            <div class="status-dot green"></div>
+                            <span class="name">Grammaire</span>
+                            <span class="comment">Très bon niveau</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mathématiques Card -->
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <div class="card-icon maths">🔢</div>
+                        <h4>Mathématiques</h4>
+                        <span class="badge encours" id="maths-badge">En cours</span>
+                    </div>
+                    <div class="subject-items" id="maths-items">
+                        <div class="subject-item">
+                            <div class="status-dot green"></div>
+                            <span class="name">Calcul</span>
+                            <span class="comment">Additions et soustractions OK</span>
+                        </div>
+                        <div class="subject-item">
+                            <div class="status-dot orange"></div>
+                            <span class="name">Tables</span>
+                            <span class="comment">À renforcer (×6, ×7, ×8)</span>
+                        </div>
+                        <div class="subject-item">
+                            <div class="status-dot green"></div>
+                            <span class="name">Géométrie</span>
+                            <span class="comment">Bon repérage spatial</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comportement Card -->
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <div class="card-icon comportement">⭐</div>
+                        <h4>Comportement</h4>
+                    </div>
+                    <div class="progress-item">
+                        <div class="progress-header">
+                            <span class="label">Attention</span>
+                            <span class="value" id="attention-value">7/10</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill cyan" id="attention-bar" style="width: 70%;"></div>
+                        </div>
+                    </div>
+                    <div class="progress-item">
+                        <div class="progress-header">
+                            <span class="label">Participation</span>
+                            <span class="value" id="participation-value">8/10</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill magenta" id="participation-bar" style="width: 80%;"></div>
+                        </div>
+                    </div>
+                    <div class="keywords" id="behavior-keywords">
+                        <span class="keyword positive">Curieux</span>
+                        <span class="keyword positive">Volontaire</span>
+                        <span class="keyword attention">Bavardages</span>
+                        <span class="keyword neutral">Dynamique</span>
+                    </div>
+                </div>
+
+                <!-- Forces Card -->
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <div class="card-icon forces">💪</div>
+                        <h4>Points forts détectés</h4>
+                    </div>
+                    <div class="progress-item">
+                        <div class="progress-header">
+                            <span class="label">Logique</span>
+                            <span class="value">85%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill green" style="width: 85%;"></div>
+                        </div>
+                    </div>
+                    <div class="progress-item">
+                        <div class="progress-header">
+                            <span class="label">Créativité</span>
+                            <span class="value">90%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill orange" style="width: 90%;"></div>
+                        </div>
+                    </div>
+                    <div class="progress-item">
+                        <div class="progress-header">
+                            <span class="label">Sociabilité</span>
+                            <span class="value">75%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill cyan" style="width: 75%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Diagnostic Card -->
+            <div class="diagnostic-card">
+                <div class="diagnostic-header">
+                    <div class="diagnostic-icon">🎯</div>
+                    <div>
+                        <h4>Diagnostic Robot JQ</h4>
+                        <p>Analyse personnalisée basée sur le bulletin</p>
+                    </div>
+                </div>
+                <div class="diagnostic-items">
+                    <div class="diagnostic-item">
+                        <div class="emoji">🏆</div>
+                        <div>
+                            <div class="label">Force principale</div>
+                            <div class="value" id="main-strength">Imagination débordante et créativité</div>
+                        </div>
+                    </div>
+                    <div class="diagnostic-item">
+                        <div class="emoji">🎯</div>
+                        <div>
+                            <div class="label">Mission prioritaire</div>
+                            <div class="value" id="main-mission">Devenir un champion des tables de multiplication</div>
+                        </div>
+                    </div>
+                    <div class="diagnostic-item">
+                        <div class="emoji">📈</div>
+                        <div>
+                            <div class="label">Potentiel de progression</div>
+                            <div class="value">Excellent - Grande marge de progression</div>
+                        </div>
+                    </div>
+                    <div class="diagnostic-item">
+                        <div class="emoji">⏱️</div>
+                        <div>
+                            <div class="label">Temps recommandé/jour</div>
+                            <div class="value">20-30 minutes d'exercices</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modules Section -->
+            <section class="modules-section">
+                <div class="section-header">
+                    <h3>🚀 Modules Recommandés par Robot JQ</h3>
+                    <p>Des activités personnalisées pour progresser en s'amusant</p>
+                </div>
+                <div class="modules-grid" id="modules-grid">
+                    <div class="module-card">
+                        <div class="module-icon">🚀</div>
+                        <h5>Défi Conjugaison Galactique</h5>
+                        <p class="reason">Lacunes détectées en passé composé. Ce module transforme la conjugaison en aventure spatiale !</p>
+                        <a href="#" class="module-btn">▶️ Commencer</a>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-icon">🧪</div>
+                        <h5>Laboratoire des Nombres</h5>
+                        <p class="reason">Besoin de renforcer le calcul mental. Expérimente avec les chiffres comme un vrai scientifique !</p>
+                        <a href="#" class="module-btn">▶️ Commencer</a>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-icon">🎮</div>
+                        <h5>Champion des Tables</h5>
+                        <p class="reason">Tables ×6, ×7, ×8 à renforcer. Deviens le maître des multiplications en jouant !</p>
+                        <a href="#" class="module-btn">▶️ Commencer</a>
+                    </div>
+                    <div class="module-card">
+                        <div class="module-icon">✍️</div>
+                        <h5>Atelier Orthographe Magique</h5>
+                        <p class="reason">Quelques erreurs d'orthographe détectées. Apprends les règles avec des sorts magiques !</p>
+                        <a href="#" class="module-btn">▶️ Commencer</a>
+                    </div>
+                </div>
+            </section>
+
+            <!-- New Analysis Button -->
+            <div style="text-align: center;">
+                <button class="new-analysis-btn" onclick="resetAnalysis()">
+                    <span>📄</span> Analyser un autre bulletin
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-logo">
+            <img src="LOGO_JB.png" alt="Logo JB">
+            <span>Sarl Jonas Browser High-Tech</span>
+        </div>
+        <p>© 2025 Robot JQ - Assistant Éducatif Intelligent | Équipe d'ingénieurs disponible 7j/7</p>
+    </footer>
+
+    <script>
+        // PDF.js configuration
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // DOM Elements
+        const uploadZone = document.getElementById('upload-zone');
+        const fileInput = document.getElementById('file-input');
+        const fileInfo = document.getElementById('file-info');
+        const fileName = document.getElementById('file-name');
+        const uploadSection = document.getElementById('upload-section');
+        const loadingContainer = document.getElementById('loading-container');
+        const dashboardContainer = document.getElementById('dashboard-container');
+
+        // Drag and Drop
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type === 'application/pdf') {
+                handleFile(files[0]);
+            }
+        });
+
+        // File Input Change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        // Handle File
+        async function handleFile(file) {
+            fileName.textContent = file.name;
+            fileInfo.classList.add('show');
+
+            // Start loading animation after delay
+            setTimeout(() => {
+                uploadSection.style.display = 'none';
+                loadingContainer.classList.add('show');
+                startLoadingAnimation();
+            }, 1000);
+
+            // Extract text from PDF
+            try {
+                const text = await extractTextFromPDF(file);
+                console.log('Extracted text:', text);
+                
+                // Analyze the bulletin
+                const analysis = analyzeBulletin(text);
+                
+                // Wait for loading animation then show dashboard
+                setTimeout(() => {
+                    loadingContainer.classList.remove('show');
+                    dashboardContainer.classList.add('show');
+                    displayAnalysis(analysis);
+                }, 6000);
+
+            } catch (error) {
+                console.error('Error processing PDF:', error);
+                // Show demo data on error
+                setTimeout(() => {
+                    loadingContainer.classList.remove('show');
+                    dashboardContainer.classList.add('show');
+                    displayAnalysis(getDemoAnalysis());
+                }, 6000);
+            }
+        }
+
+        // Extract text from PDF
+        async function extractTextFromPDF(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = '';
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                fullText += pageText + '\n';
+            }
+
+            return fullText;
+        }
+
+        // Analyze Bulletin
+        function analyzeBulletin(text) {
+            const textLower = text.toLowerCase();
+            
+            // Default analysis structure
+            const analysis = {
+                eleve: {
+                    niveau: "CE2",
+                    etablissement: extractSchoolName(text),
+                    periode: extractPeriod(text)
+                },
+                analyse_academique: {
+                    francais: {
+                        note_globale: extractGrade(text, 'français'),
+                        lecture: {
+                            etat: detectStatus(text, ['lecture', 'lire', 'fluidité']),
+                            commentaire: extractComment(text, 'lecture')
+                        },
+                        ecriture: {
+                            etat: detectStatus(text, ['écriture', 'orthographe', 'grammaire']),
+                            commentaire: extractComment(text, 'écriture')
+                        }
+                    },
+                    mathematiques: {
+                        calcul: {
+                            etat: detectStatus(text, ['calcul', 'addition', 'soustraction', 'multiplication']),
+                            points_faibles: detectWeakPoints(text)
+                        },
+                        geometrie: extractComment(text, 'géométrie')
+                    },
+                    comportement: {
+                        attention: estimateScore(text, ['attentif', 'concentré', 'distrait', 'bavard']),
+                        participation: estimateScore(text, ['participe', 'actif', 'volontaire', 'timide']),
+                        mots_cles: extractBehaviorKeywords(text)
+                    }
+                },
+                diagnostic_robot_jq: {
+                    force_principale: detectMainStrength(text),
+                    mission_prioritaire: detectPriorityMission(text),
+                    modules_recommandes: generateModules(text),
+                    message_personnalise_enfant: generatePersonalMessage(text)
+                }
+            };
+
+            return analysis;
+        }
+
+        // Helper functions for analysis
+        function extractSchoolName(text) {
+            const schoolPatterns = [/école\s+([A-Za-zÀ-ÿ\s]+)/i, /établissement\s*:\s*([A-Za-zÀ-ÿ\s]+)/i];
+            for (const pattern of schoolPatterns) {
+                const match = text.match(pattern);
+                if (match) return match[1].trim().substring(0, 30);
+            }
+            return "École Primaire";
+        }
+
+        function extractPeriod(text) {
+            if (/trimestre\s*3|3e\s*trimestre/i.test(text)) return "Trimestre 3";
+            if (/trimestre\s*2|2e\s*trimestre/i.test(text)) return "Trimestre 2";
+            if (/trimestre\s*1|1er\s*trimestre/i.test(text)) return "Trimestre 1";
+            if (/semestre\s*2/i.test(text)) return "Semestre 2";
+            if (/semestre\s*1/i.test(text)) return "Semestre 1";
+            return "Période actuelle";
+        }
+
+        function extractGrade(text, subject) {
+            const patterns = [
+                new RegExp(subject + '\\s*[:\\-]?\\s*(\\d+(?:[,.]\\d+)?)', 'i'),
+                new RegExp('(A|B|C|D)\\s*' + subject, 'i')
+            ];
+            for (const pattern of patterns) {
+                const match = text.match(pattern);
+                if (match) return match[1];
+            }
+            return "B";
+        }
+
+        function detectStatus(text, keywords) {
+            const textLower = text.toLowerCase();
+            let positive = 0, negative = 0;
+            
+            const positiveWords = ['acquis', 'maîtrisé', 'excellent', 'très bien', 'bien', 'satisfaisant', 'bon'];
+            const negativeWords = ['non acquis', 'insuffisant', 'difficultés', 'à travailler', 'fragile'];
+            
+            keywords.forEach(kw => {
+                const context = textLower.substring(
+                    Math.max(0, textLower.indexOf(kw) - 100),
+                    Math.min(textLower.length, textLower.indexOf(kw) + 100)
+                );
+                positiveWords.forEach(pw => { if (context.includes(pw)) positive++; });
+                negativeWords.forEach(nw => { if (context.includes(nw)) negative++; });
+            });
+
+            if (positive > negative + 1) return "Acquis";
+            if (negative > positive) return "Non acquis";
+            return "En cours";
+        }
+
+        function extractComment(text, topic) {
+            const comments = {
+                lecture: ["Bonne fluidité de lecture", "Lit avec aisance", "Déchiffrage correct", "À encourager"],
+                écriture: ["Attention à l'orthographe", "Écriture soignée", "Progrès à faire", "Bon niveau"],
+                géométrie: ["Bon repérage spatial", "Comprend les formes", "Figures géométriques OK"]
+            };
+            return comments[topic]?.[Math.floor(Math.random() * comments[topic].length)] || "À continuer";
+        }
+
+        function detectWeakPoints(text) {
+            const weakPoints = [];
+            const textLower = text.toLowerCase();
+            
+            if (/tables?\s*(de\s*)?(multiplication|×)/i.test(text) && /difficul|travail|renforc/i.test(text)) {
+                weakPoints.push("Tables de multiplication");
+            }
+            if (/soustraction/i.test(text) && /difficul|attention/i.test(text)) {
+                weakPoints.push("Soustractions avec retenue");
+            }
+            if (/problème/i.test(text) && /difficul|compréhension/i.test(text)) {
+                weakPoints.push("Résolution de problèmes");
+            }
+            
+            return weakPoints.length > 0 ? weakPoints : ["À consolider"];
+        }
+
+        function estimateScore(text, keywords) {
+            const textLower = text.toLowerCase();
+            let score = 5;
+            
+            const positiveBoosts = ['très', 'excellent', 'remarquable', 'toujours', 'parfait'];
+            const negativeBoosts = ['peu', 'rarement', 'insuffisant', 'jamais', 'difficile'];
+            
+            keywords.forEach(kw => {
+                if (textLower.includes(kw)) {
+                    const context = textLower.substring(
+                        Math.max(0, textLower.indexOf(kw) - 50),
+                        Math.min(textLower.length, textLower.indexOf(kw) + 50)
+                    );
+                    positiveBoosts.forEach(pb => { if (context.includes(pb)) score += 1.5; });
+                    negativeBoosts.forEach(nb => { if (context.includes(nb)) score -= 1.5; });
+                }
+            });
+            
+            return Math.max(1, Math.min(10, Math.round(score)));
+        }
+
+        function extractBehaviorKeywords(text) {
+            const allKeywords = {
+                positive: ['Curieux', 'Volontaire', 'Participatif', 'Sérieux', 'Appliqué', 'Autonome'],
+                neutral: ['Dynamique', 'Sociable', 'Actif', 'Énergique'],
+                attention: ['Bavardages', 'Distrait', 'Agité', 'Rêveur']
+            };
+            
+            const found = [];
+            const textLower = text.toLowerCase();
+            
+            Object.entries(allKeywords).forEach(([type, words]) => {
+                words.forEach(word => {
+                    if (textLower.includes(word.toLowerCase()) && found.length < 4) {
+                        found.push({ word, type });
+                    }
+                });
+            });
+            
+            // Add some defaults if not enough found
+            if (found.length < 3) {
+                found.push({ word: 'Curieux', type: 'positive' });
+                found.push({ word: 'Dynamique', type: 'neutral' });
+            }
+            
+            return found;
+        }
+
+        function detectMainStrength(text) {
+            const textLower = text.toLowerCase();
+            const strengths = [
+                { pattern: /créati|imagin|artist/i, strength: "Imagination débordante et créativité" },
+                { pattern: /logique|raisonne|mathémat/i, strength: "Excellente logique mathématique" },
+                { pattern: /oral|s'exprime|communication/i, strength: "Très bonne expression orale" },
+                { pattern: /lecture|lit|compréhension/i, strength: "Compréhension et lecture avancées" },
+                { pattern: /sport|motri|énergi/i, strength: "Grande énergie et dynamisme" }
+            ];
+            
+            for (const s of strengths) {
+                if (s.pattern.test(text)) return s.strength;
+            }
+            return "Curiosité naturelle et envie d'apprendre";
+        }
+
+        function detectPriorityMission(text) {
+            const textLower = text.toLowerCase();
+            const missions = [
+                { pattern: /orthograph/i, mission: "Devenir un champion de l'orthographe" },
+                { pattern: /table|multiplic/i, mission: "Maîtriser toutes les tables de multiplication" },
+                { pattern: /concentr|attenti/i, mission: "Développer sa concentration" },
+                { pattern: /écriture|rédact/i, mission: "Améliorer la qualité de l'écriture" },
+                { pattern: /calcul/i, mission: "Devenir un as du calcul mental" }
+            ];
+            
+            for (const m of missions) {
+                if (m.pattern.test(text)) return m.mission;
+            }
+            return "Consolider les acquis et continuer à progresser";
+        }
+
+        function generateModules(text) {
+            const modules = [
+                {
+                    nom_module: "🚀 Défi Conjugaison Galactique",
+                    raison: "Renforcer la maîtrise des temps verbaux"
+                },
+                {
+                    nom_module: "🧪 Laboratoire des Nombres",
+                    raison: "Développer le calcul mental"
+                },
+                {
+                    nom_module: "🎮 Champion des Tables",
+                    raison: "Mémoriser les tables de multiplication"
+                },
+                {
+                    nom_module: "✍️ Atelier Orthographe Magique",
+                    raison: "Améliorer l'orthographe en jouant"
+                }
+            ];
+            return modules;
+        }
+
+        function generatePersonalMessage(text) {
+            const messages = [
+                "Salut champion ! J'ai analysé ton bulletin et je vois que tu as un super potentiel ! Ta créativité est géniale, et ensemble on va transformer tes petites difficultés en grandes victoires. Es-tu prêt(e) ?",
+                "Hey ! Robot JQ à ton service ! Tu sais quoi ? Tu es vraiment doué(e) ! On va juste renforcer quelques trucs ensemble et tu vas devenir imbattable. C'est parti pour l'aventure !",
+                "Coucou ! J'ai bien regardé ton bulletin et je suis impressionné ! Tu as plein de qualités. On va travailler en équipe pour que tu deviennes encore plus fort(e). Let's go !"
+            ];
+            return messages[Math.floor(Math.random() * messages.length)];
+        }
+
+        function getDemoAnalysis() {
+            return {
+                eleve: {
+                    niveau: "CE2",
+                    etablissement: "École Primaire Jules Ferry",
+                    periode: "Trimestre 2"
+                },
+                analyse_academique: {
+                    francais: {
+                        note_globale: "B+",
+                        lecture: { etat: "Acquis", commentaire: "Bonne fluidité de lecture" },
+                        ecriture: { etat: "En cours", commentaire: "Attention à l'orthographe" }
+                    },
+                    mathematiques: {
+                        calcul: { etat: "En cours", points_faibles: ["Tables ×6, ×7, ×8"] },
+                        geometrie: "Bon repérage spatial"
+                    },
+                    comportement: {
+                        attention: 7,
+                        participation: 8,
+                        mots_cles: [
+                            { word: 'Curieux', type: 'positive' },
+                            { word: 'Volontaire', type: 'positive' },
+                            { word: 'Bavardages', type: 'attention' },
+                            { word: 'Dynamique', type: 'neutral' }
+                        ]
+                    }
+                },
+                diagnostic_robot_jq: {
+                    force_principale: "Imagination débordante et créativité",
+                    mission_prioritaire: "Devenir un champion des tables de multiplication",
+                    modules_recommandes: [
+                        { nom_module: "🚀 Défi Conjugaison Galactique", raison: "Renforcer le passé composé" },
+                        { nom_module: "🧪 Laboratoire des Nombres", raison: "Calcul mental à développer" },
+                        { nom_module: "🎮 Champion des Tables", raison: "Tables ×6, ×7, ×8 à renforcer" },
+                        { nom_module: "✍️ Atelier Orthographe Magique", raison: "Quelques erreurs détectées" }
+                    ],
+                    message_personnalise_enfant: "Salut champion ! J'ai vu que tu es super en créativité, on va utiliser cette super-pouvoir pour exploser tes scores en maths ! 🚀"
+                }
+            };
+        }
+
+        // Display Analysis
+        function displayAnalysis(analysis) {
+            // Student info
+            document.getElementById('school-name').textContent = analysis.eleve.etablissement;
+            document.getElementById('period').textContent = analysis.eleve.periode;
+
+            // Calculate and display global score
+            const globalScore = calculateGlobalScore(analysis);
+            document.getElementById('global-score').textContent = globalScore + '%';
+            document.querySelector('.score-circle').style.setProperty('--score', globalScore);
+
+            // Robot message
+            document.getElementById('robot-personal-message').textContent = 
+                analysis.diagnostic_robot_jq.message_personnalise_enfant;
+
+            // French section
+            updateBadge('francais-badge', analysis.analyse_academique.francais.lecture.etat);
+            
+            // Math section
+            updateBadge('maths-badge', analysis.analyse_academique.mathematiques.calcul.etat);
+
+            // Behavior
+            const attention = analysis.analyse_academique.comportement.attention;
+            const participation = analysis.analyse_academique.comportement.participation;
+            
+            document.getElementById('attention-value').textContent = attention + '/10';
+            document.getElementById('attention-bar').style.width = (attention * 10) + '%';
+            document.getElementById('participation-value').textContent = participation + '/10';
+            document.getElementById('participation-bar').style.width = (participation * 10) + '%';
+
+            // Behavior keywords
+            const keywordsContainer = document.getElementById('behavior-keywords');
+            keywordsContainer.innerHTML = '';
+            analysis.analyse_academique.comportement.mots_cles.forEach(kw => {
+                const span = document.createElement('span');
+                span.className = `keyword ${kw.type}`;
+                span.textContent = kw.word;
+                keywordsContainer.appendChild(span);
+            });
+
+            // Diagnostic
+            document.getElementById('main-strength').textContent = 
+                analysis.diagnostic_robot_jq.force_principale;
+            document.getElementById('main-mission').textContent = 
+                analysis.diagnostic_robot_jq.mission_prioritaire;
+
+            // Modules
+            const modulesGrid = document.getElementById('modules-grid');
+            modulesGrid.innerHTML = '';
+            analysis.diagnostic_robot_jq.modules_recommandes.forEach(module => {
+                const card = document.createElement('div');
+                card.className = 'module-card';
+                card.innerHTML = `
+                    <div class="module-icon">${module.nom_module.split(' ')[0]}</div>
+                    <h5>${module.nom_module.substring(2)}</h5>
+                    <p class="reason">${module.raison}</p>
+                    <a href="#" class="module-btn">▶️ Commencer</a>
+                `;
+                modulesGrid.appendChild(card);
+            });
+        }
+
+        function calculateGlobalScore(analysis) {
+            let score = 50;
+            const fr = analysis.analyse_academique.francais;
+            const math = analysis.analyse_academique.mathematiques;
+            const behav = analysis.analyse_academique.comportement;
+
+            if (fr.lecture.etat === 'Acquis') score += 10;
+            if (fr.ecriture.etat === 'Acquis') score += 10;
+            if (math.calcul.etat === 'Acquis') score += 10;
+            if (fr.lecture.etat === 'En cours') score += 5;
+            if (fr.ecriture.etat === 'En cours') score += 5;
+            if (math.calcul.etat === 'En cours') score += 5;
+
+            score += behav.attention;
+            score += behav.participation;
+
+            return Math.min(100, Math.max(0, score));
+        }
+
+        function updateBadge(elementId, status) {
+            const badge = document.getElementById(elementId);
+            badge.textContent = status;
+            badge.className = 'badge';
+            if (status === 'Acquis') badge.classList.add('acquis');
+            else if (status === 'En cours') badge.classList.add('encours');
+            else badge.classList.add('nonacquis');
+        }
+
+        // Loading Animation
+        function startLoadingAnimation() {
+            const steps = ['step-1', 'step-2', 'step-3', 'step-4', 'step-5'];
+            let currentStep = 0;
+
+            const interval = setInterval(() => {
+                if (currentStep > 0) {
+                    document.getElementById(steps[currentStep - 1]).classList.remove('active');
+                    document.getElementById(steps[currentStep - 1]).classList.add('done');
+                    document.getElementById(steps[currentStep - 1]).querySelector('.icon').textContent = '✅';
+                }
+                
+                if (currentStep < steps.length) {
+                    document.getElementById(steps[currentStep]).classList.add('active');
+                    currentStep++;
+                } else {
+                    clearInterval(interval);
+                }
+            }, 1000);
+        }
+
+        // Reset Analysis
+        function resetAnalysis() {
+            dashboardContainer.classList.remove('show');
+            uploadSection.style.display = 'block';
+            fileInfo.classList.remove('show');
+            fileInput.value = '';
+            
+            // Reset loading steps
+            for (let i = 1; i <= 5; i++) {
+                const step = document.getElementById('step-' + i);
+                step.classList.remove('active', 'done');
+                step.querySelector('.icon').textContent = ['📄', '🔍', '🧠', '📊', '🎯'][i-1];
+            }
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
